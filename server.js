@@ -10,6 +10,31 @@ const HOST = process.env.HOST || "127.0.0.1";
 const GOAL = Number(process.env.FOUNDER_GOAL || 100);
 const COUNTRY_THRESHOLD = Number(process.env.COUNTRY_THRESHOLD || 10);
 const ROLES = new Set(["player", "organizer", "spokesperson"]);
+
+// Sign-up alerts (owner rule, 2026-11-04): email every X sign-ups, X = max(floor(total / 10), 1).
+// X is taken from the total at the previous email, so the gap grows with the list: every sign-up up to 20,
+// then 22, 24 … 30, 33 … roughly 10% apart (about 10 emails per tenfold growth), plus one at the founder goal. Testing "total % X == 0"
+// instead would fire on every multiple of 10 forever.
+// Sent through Resend when RESEND_API_KEY, NOTIFY_TO and NOTIFY_FROM are set; otherwise only logged.
+const NOTIFY = {
+  key: process.env.RESEND_API_KEY || "",
+  to: process.env.NOTIFY_TO || "",
+  from: process.env.NOTIFY_FROM || "",
+  url: process.env.RESEND_URL || "https://api.resend.com/emails",
+  label: process.env.NOTIFY_LABEL || "",
+};
+const alertStep = (n) => Math.max(Math.floor(n / 10), 1);
+// Alert points: 1, then each previous point + alertStep(previous point).
+function alertPointsUpTo(n) { const pts = []; for (let m = 1; m <= n; m += alertStep(m)) pts.push(m); return pts; }
+// The founder goal (100) always gets an email too, since that is when the game starts.
+const isAlertPoint = (n) => { const p = alertPointsUpTo(n); return p[p.length - 1] === n || n === GOAL; };
+function prevAlertPoint(n) {
+  const p = alertPointsUpTo(n - 1); let prev = p.length ? p[p.length - 1] : 0;
+  if (GOAL < n && GOAL > prev) prev = GOAL;
+  return prev;
+}
+function nextAlertPoint(n) { let m = n + 1; while (!isAlertPoint(m)) m++; return m; }
+const recent = []; // the newest sign-ups (at most 1,000), for the alert email
 const DATA = process.env.DATA_FILE || path.join(__dirname, "data", "signups.jsonl");
 const PUBLIC = path.join(__dirname, "public");
 
@@ -42,7 +67,11 @@ function countCountry(raw) {
 if (fs.existsSync(DATA)) {
   for (const line of fs.readFileSync(DATA, "utf8").split("\n")) {
     if (!line.trim()) continue;
-    try { const rec = JSON.parse(line); seen.add(rec.emailHash); countCountry(rec.country); } catch {}
+    try {
+      const rec = JSON.parse(line);
+      seen.add(rec.emailHash); countCountry(rec.country);
+      recent.push(rec); if (recent.length > 1000) recent.shift();
+    } catch {}
   }
 }
 
@@ -82,6 +111,37 @@ function readBody(req) {
 }
 
 const clean = (v, max) => String(v || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, max);
+
+async function sendAlert(n) {
+  const since = prevAlertPoint(n);
+  const fresh = recent.slice(-(n - since));
+  const lines = fresh.map((r) => {
+    const bits = [r.name || "(no name)", r.email, [r.state, r.country].filter(Boolean).join(", "), r.leaning, r.role && r.role !== "player" ? r.role : ""].filter(Boolean);
+    return "- " + bits.join(" | ") + (r.bring ? "\n    \"" + r.bring + "\"" : "");
+  });
+  const top = [...countries.values()].sort((a, b) => b.count - a.count).slice(0, 10).map((c) => `${c.name} ${c.count}`).join(", ");
+  const next = nextAlertPoint(n);
+  const subject = `${NOTIFY.label}Truth First: ${n} sign-up${n === 1 ? "" : "s"} (+${n - since})`;
+  const text = [
+    `${n} people have signed up${n < GOAL ? `, ${GOAL - n} to go until ${GOAL}` : ""}.`,
+    "",
+    `New since the last email (${n - since}):`,
+    ...lines,
+    "",
+    `By country: ${top || "none yet"}`,
+    "",
+    `Next email at ${next} sign-ups.`,
+  ].join("\n");
+  if (!NOTIFY.key || !NOTIFY.to || !NOTIFY.from) { console.log(`alert (not sent, email not configured): ${subject}`); return; }
+  const res = await fetch(NOTIFY.url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${NOTIFY.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: NOTIFY.from, to: NOTIFY.to.split(",").map((s) => s.trim()), subject, text }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  console.log(`alert sent: ${subject}`);
+}
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
@@ -129,6 +189,8 @@ const server = http.createServer(async (req, res) => {
     fs.appendFileSync(DATA, JSON.stringify(rec) + "\n", { mode: 0o600 });
     seen.add(emailHash);
     countCountry(rec.country);
+    recent.push(rec); if (recent.length > 1000) recent.shift();
+    if (isAlertPoint(seen.size)) sendAlert(seen.size).catch((e) => console.error("alert failed:", e.message));
     return send(res, 200, { ok: true, count: seen.size, goal: GOAL });
   }
 
