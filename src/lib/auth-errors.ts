@@ -1,0 +1,17 @@
+/** User-facing message when Web3Auth popup is blocked (Safari, etc.). */
+export function formatAuthError(message: string): string {
+  if (/popup.*block/i.test(message)) {
+    return (
+      'Sign-in popup was blocked. Allow popups for truthfirst.vote ' +
+      '(Safari: address bar → Website Settings → Pop-up Windows → Allow), then click Sign in again.'
+    );
+  }
+  if (/session expired|invalid public key/i.test(message)) {
+    return 'Your previous sign-in session expired. Click Sign in again to continue.';
+  }
+  return message;
+}
+
+export function isUserDismissedAuthError(message: string): boolean {
+  return /user closed|closed popup|user rejected/i.test(message);
+}
