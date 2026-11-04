@@ -9,5 +9,5 @@ One page plus a founding-player sign-up list. At 100 sign-ups we co-create the g
 
 ## Staging (box #2)
 - PM2 app `truthfirst-staging`, cwd `~/truthfirst-vote-staging`, `PORT=3041`, `DATA_FILE=~/truthfirst-data/staging/signups.jsonl` (outside the checkout).
-- nginx: `deploy/staging.truthfirst.vote.conf` (HTTP only until DNS points `staging.truthfirst.vote` at box #2).
+- nginx: `deploy/staging.truthfirst.vote.conf`, HTTPS behind Cloudflare (proxied, Full (strict)) with a Cloudflare Origin CA cert whose key is on box #2.
 - Auto-deploy: `deploy/truthfirst-staging.pull-deploy.conf` (installed as `/etc/pull-deploy/sites/truthfirst-staging.conf`). Merging into `staging` deploys.
