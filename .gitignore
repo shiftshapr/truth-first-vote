@@ -1,2 +1,15 @@
-data/
-node_modules/
+/node_modules
+/.next/
+/.next-prod/
+/.next-prod-build/
+/.next-staging/
+/.next-staging-build/
+/out/
+/build
+.DS_Store
+*.pem
+npm-debug.log*
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
