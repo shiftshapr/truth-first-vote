@@ -8,17 +8,41 @@ const crypto = require("crypto");
 const PORT = Number(process.env.PORT || 3041);
 const HOST = process.env.HOST || "127.0.0.1";
 const GOAL = Number(process.env.FOUNDER_GOAL || 100);
+const COUNTRY_THRESHOLD = Number(process.env.COUNTRY_THRESHOLD || 10);
+const ROLES = new Set(["player", "organizer", "spokesperson"]);
 const DATA = process.env.DATA_FILE || path.join(__dirname, "data", "signups.jsonl");
 const PUBLIC = path.join(__dirname, "public");
 
 fs.mkdirSync(path.dirname(DATA), { recursive: true });
 
-// Load existing sign-ups (email hashes only kept in memory for de-duplication).
+// Load existing sign-ups. In memory we keep only email hashes (de-duplication) and per-country counts.
 const seen = new Set();
+const countries = new Map(); // normalized key -> { name, count }
+const ALIASES = { "usa": "United States", "us": "United States", "u.s.": "United States", "u.s.a.": "United States", "america": "United States", "united states of america": "United States", "uk": "United Kingdom", "england": "United Kingdom", "great britain": "United Kingdom", "turkey": "Türkiye" };
+// Canonical spellings from the same list the forms suggest, so "kenya" and "Kenya" count together.
+const KNOWN = new Map();
+try {
+  const m = fs.readFileSync(path.join(PUBLIC, "countries.js"), "utf8").match(/TF_COUNTRIES = (\[.*?\]);/s);
+  for (const c of JSON.parse(m[1])) KNOWN.set(c.toLowerCase(), c);
+} catch (e) { console.error("country list not loaded:", e.message); }
+function normCountry(raw) {
+  const name = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!name) return null;
+  const key = name.toLowerCase();
+  const canon = ALIASES[key] || KNOWN.get(key) || name;
+  return { key: canon.toLowerCase(), name: canon };
+}
+function countCountry(raw) {
+  const c = normCountry(raw);
+  if (!c) return;
+  const cur = countries.get(c.key) || { name: c.name, count: 0 };
+  cur.count += 1;
+  countries.set(c.key, cur);
+}
 if (fs.existsSync(DATA)) {
   for (const line of fs.readFileSync(DATA, "utf8").split("\n")) {
     if (!line.trim()) continue;
-    try { seen.add(JSON.parse(line).emailHash); } catch {}
+    try { const rec = JSON.parse(line); seen.add(rec.emailHash); countCountry(rec.country); } catch {}
   }
 }
 
@@ -66,6 +90,20 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { count: seen.size, goal: GOAL });
   }
 
+  if (url.pathname === "/api/countries" && req.method === "GET") {
+    // Only list known country names publicly; free text is grouped as "Other" so nobody can post arbitrary words here.
+    const shown = new Map();
+    for (const [key, c] of countries) {
+      const known = KNOWN.has(key);
+      const k = known ? key : "\u0000other";
+      const cur = shown.get(k) || { name: known ? c.name : "Other", count: 0 };
+      cur.count += c.count;
+      shown.set(k, cur);
+    }
+    const list = [...shown.values()].sort((a, b) => (a.name === "Other") - (b.name === "Other") || b.count - a.count || a.name.localeCompare(b.name));
+    return send(res, 200, { countries: list, threshold: COUNTRY_THRESHOLD });
+  }
+
   if (url.pathname === "/api/join" && req.method === "POST") {
     const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
     if (limited(ip)) return send(res, 429, { error: "Too many tries. Give it a few minutes." });
@@ -82,12 +120,15 @@ const server = http.createServer(async (req, res) => {
       name: clean(body.name, 80),
       email,
       emailHash,
+      country: (normCountry(body.country) || {}).name || "",
       state: clean(body.state, 40),
+      role: ROLES.has(body.role) ? body.role : "player",
       leaning: clean(body.leaning, 40),
       bring: clean(body.bring, 500),
     };
     fs.appendFileSync(DATA, JSON.stringify(rec) + "\n", { mode: 0o600 });
     seen.add(emailHash);
+    countCountry(rec.country);
     return send(res, 200, { ok: true, count: seen.size, goal: GOAL });
   }
 
@@ -95,6 +136,7 @@ const server = http.createServer(async (req, res) => {
 
   let p = decodeURIComponent(url.pathname);
   if (p === "/") p = "/index.html";
+  else if (!path.extname(p)) p = p.replace(/\/$/, "") + ".html";
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC + path.sep)) return send(res, 404, "Not found", "text/plain");
   fs.readFile(file, (err, buf) => {
