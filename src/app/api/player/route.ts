@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const session = await readSession();
   if (!session) return NextResponse.json({ error: 'Sign in first' }, { status: 401 });
   const body = await request.json().catch(() => ({}));
-  if (!body.agree) return NextResponse.json({ error: "Please tick the box to confirm you've read what this is." }, { status: 400 });
+  if (!body.agree) return NextResponse.json({ error: 'Please tick the box to agree before you join.' }, { status: 400 });
   try {
     return NextResponse.json({ ok: true, ...(await upsertPlayer(session, body)) });
   } catch (err) {

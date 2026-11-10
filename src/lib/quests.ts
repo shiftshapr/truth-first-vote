@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
-import { award } from '@/lib/players';
+import { award, payInviter } from '@/lib/players';
 import { questById } from '@/lib/site';
 
 export type Submission = {
@@ -63,11 +63,17 @@ export async function submitQuest(userId: string, questId: string, input: { url?
   if (open.rowCount) {
     throw bad(open.rows[0].status === 'approved' ? 'You already completed this quest.' : 'This quest is already waiting for review.');
   }
-  const res = await pool.query(
-    'INSERT INTO tf_quest_submission (id, user_id, quest_id, url, body) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-    [randomUUID(), userId, questId, url, body],
-  );
-  return fromRow(res.rows[0]);
+  try {
+    const res = await pool.query(
+      'INSERT INTO tf_quest_submission (id, user_id, quest_id, url, body) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [randomUUID(), userId, questId, url, body],
+    );
+    return fromRow(res.rows[0]);
+  } catch (err) {
+    // Two hand-ins at once: the unique index lets only one through.
+    if ((err as { code?: string }).code === '23505') throw bad('This quest is already waiting for review.');
+    throw err;
+  }
 }
 
 export async function mySubmissions(userId: string): Promise<Submission[]> {
@@ -87,7 +93,7 @@ export async function listSubmissions(status: string | null): Promise<Submission
   return res.rows.map(fromRow);
 }
 
-/** Approve (awards the quest's points once) or reject a pending submission. */
+/** Approve (awards the quest's points once, and pays whoever invited the player) or reject a pending submission. */
 export async function reviewSubmission(id: string, approve: boolean, note: string, by: string): Promise<Submission> {
   const pool = await db();
   const client = await pool.connect();
@@ -103,6 +109,7 @@ export async function reviewSubmission(id: string, approve: boolean, note: strin
     if (approve) {
       const s = res.rows[0];
       await award(client, String(s.user_id), String(s.quest_id), id, questById(String(s.quest_id))?.name || 'Quest', by);
+      await payInviter(client, String(s.user_id));
     }
     await client.query('COMMIT');
     return fromRow(res.rows[0]);

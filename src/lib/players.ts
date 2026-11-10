@@ -95,12 +95,39 @@ export async function award(
   return (res.rowCount || 0) > 0;
 }
 
+// Serializes bridge payouts per inviter, so the Season 0 limit holds under concurrent reviews.
+const BRIDGE_LOCK = 735123002;
+
+/**
+ * Pay the bridge quest to whoever invited this player, if their parties differ and the inviter
+ * is under the limit. Called inside the transaction that approves the player's reviewed quest;
+ * the (inviter, bridge, invitee) ref makes it pay at most once per invitee.
+ */
+export async function payInviter(client: PoolClient, inviteeId: string): Promise<boolean> {
+  const row = (await client.query(
+    `SELECT p.party, i.user_id AS inviter_id, i.party AS inviter_party
+     FROM tf_player p JOIN tf_player i ON i.user_id = p.invited_by WHERE p.user_id = $1`,
+    [inviteeId],
+  )).rows[0];
+  if (!row || !partiesDiffer(String(row.inviter_party || ''), String(row.party || ''))) return false;
+  const inviterId = String(row.inviter_id);
+  await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [BRIDGE_LOCK, inviterId]);
+  const bridge = questById('bridge');
+  const limit = bridge && 'limit' in bridge ? bridge.limit : Infinity;
+  const paid = Number((await client.query(
+    "SELECT count(*) AS n FROM tf_points WHERE user_id = $1 AND quest_id = 'bridge'", [inviterId],
+  )).rows[0].n);
+  if (paid >= limit) return false;
+  return award(client, inviterId, 'bridge', inviteeId, `Brought in a ${String(row.party)} player`);
+}
+
 // Serializes first-time joins so player numbers and the alert schedule see an exact running total.
 const JOIN_LOCK = 735123001;
 
 /**
  * Create or update the signed-in person's player profile. The first save makes them a player:
- * a player number, the join points, bridge points for whoever invited them, and maybe a sign-up alert.
+ * a player number, the join points and maybe a sign-up alert. Whoever invited them is paid later,
+ * when this player's first reviewed quest is approved (see payInviter).
  */
 export async function upsertPlayer(session: SiteSession, input: PlayerInput): Promise<{ player: Player; created: boolean }> {
   const country = normalizeCountry(input.country);
@@ -137,7 +164,7 @@ export async function upsertPlayer(session: SiteSession, input: PlayerInput): Pr
       created = true;
       const inviteCode = clean(input.invite, 40);
       const inviter = inviteCode
-        ? (await client.query('SELECT user_id, party FROM tf_player WHERE invite_code = $1 AND user_id <> $2', [inviteCode, session.userId])).rows[0]
+        ? (await client.query('SELECT user_id FROM tf_player WHERE invite_code = $1 AND user_id <> $2', [inviteCode, session.userId])).rows[0]
         : undefined;
       const num = Number((await client.query('SELECT COALESCE(max(player_number), 0) + 1 AS n FROM tf_player')).rows[0].n);
       await client.query(
@@ -150,9 +177,6 @@ export async function upsertPlayer(session: SiteSession, input: PlayerInput): Pr
           inviter?.user_id || null, num],
       );
       await award(client, session.userId, 'join', session.userId, 'Joined the game');
-      if (inviter && partiesDiffer(String(inviter.party || ''), fields.party)) {
-        await award(client, String(inviter.user_id), 'bridge', session.userId, `Brought in a ${fields.party} player`);
-      }
       total = Number((await client.query('SELECT count(*) AS n FROM tf_player')).rows[0].n);
     }
     await client.query('COMMIT');

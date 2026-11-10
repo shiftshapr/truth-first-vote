@@ -52,7 +52,8 @@ export const PARTY_SUGGESTIONS = ['Democrat', 'Republican', 'Independent', 'Anot
 /**
  * Season 0 quests, until the founding players write the real rules.
  * auto: awarded by the site. review: a player submits evidence and an admin approves it.
- * repeatable quests can earn points more than once (bridge: once per person you bring in).
+ * repeatable quests can earn points more than once, up to `limit` times
+ * (bridge: once per person you bring in whose first reviewed quest is approved).
  */
 export const QUESTS = [
   {
@@ -80,8 +81,9 @@ export const QUESTS = [
     points: 25,
     kind: 'auto',
     repeatable: true,
+    limit: 5,
     skill: 'Bridging',
-    how: 'Share your invite link. You score each time someone joins with it whose party is different from yours.',
+    how: 'Share your invite link. You score when someone joins with it whose party is different from yours and their first reviewed quest is approved. Up to 5 people in Season 0.',
   },
   {
     id: 'steelman',

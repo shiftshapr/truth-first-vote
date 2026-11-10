@@ -134,6 +134,8 @@ function Dashboard({ data, welcome, reload }: { data: PlayData; welcome: boolean
     const q = questById(id)!;
     if (q.kind === 'auto') {
       if (id === 'join') return { label: 'Done', done: true };
+      const limit = 'limit' in q ? q.limit : Infinity;
+      if (bridgeCount >= limit) return { label: 'Done', done: true };
       return { label: bridgeCount ? `Earned ${bridgeCount}×` : 'Open', done: false };
     }
     const mine = subs.filter((s) => s.questId === id);
@@ -190,7 +192,7 @@ function Dashboard({ data, welcome, reload }: { data: PlayData; welcome: boolean
             return (
               <div key={q.id} className={`card stack-4${st.done ? ' quest--done' : ''}`}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="cs-tag">{q.skill} · {q.points} pts{q.repeatable ? ' each' : ''}</span>
+                  <span className="cs-tag">{q.skill} · {q.points} pts{q.repeatable ? ' each' : ''}{'limit' in q ? `, up to ${q.limit}` : ''}</span>
                   <span className={st.done ? 'cs-tag cs-tag--signal' : 'cs-tag cs-tag--outline'}>{st.label}</span>
                 </div>
                 <h3 className="title">{q.name}</h3>
