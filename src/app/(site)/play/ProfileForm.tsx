@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { COUNTRIES } from '@/lib/countries';
 import { PARTY_SUGGESTIONS, ROLES } from '@/lib/site';
@@ -40,7 +41,7 @@ export default function ProfileForm({
     e.preventDefault();
     setError(null);
     if (!v.country.trim()) return setError('Which country are you in?');
-    if (!agree) return setError("Please tick the box to confirm you've read what this is.");
+    if (!agree) return setError('Please tick the box to agree before you join.');
     setBusy(true);
     try {
       const res = await fetch('/api/player', {
@@ -101,7 +102,9 @@ export default function ProfileForm({
       {joining ? (
         <label className="check">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-          I understand Truth First is an imaginary party and a game. It doesn&apos;t take money or endorse candidates.
+          I understand Truth First is an imaginary party and a game. It doesn&apos;t take money or endorse candidates. I
+          agree that it stores my profile, including my party, as set out in the{' '}
+          <Link href="/privacy" target="_blank">privacy page</Link>.
         </label>
       ) : null}
       {error ? <p className="notice notice--error small" role="alert">{error}</p> : null}

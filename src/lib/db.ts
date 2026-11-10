@@ -49,8 +49,12 @@ CREATE TABLE IF NOT EXISTS tf_quest_submission (
 
 CREATE INDEX IF NOT EXISTS tf_quest_submission_status ON tf_quest_submission (status, created_at);
 
+-- At most one open or approved hand-in per player per quest, so a quest can't be paid twice.
+CREATE UNIQUE INDEX IF NOT EXISTS tf_quest_submission_open ON tf_quest_submission (user_id, quest_id)
+  WHERE status IN ('pending', 'approved');
+
 -- Every point ever awarded. A player's score is the sum. ref makes an award happen once
--- (join: the player; bridge: the invited player; reviewed quests: the submission).
+-- (join: the player; bridge: the invited player, paid when their first quest is approved; reviewed quests: the submission).
 CREATE TABLE IF NOT EXISTS tf_points (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES tf_player(user_id) ON DELETE CASCADE,

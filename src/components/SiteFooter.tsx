@@ -17,6 +17,7 @@ export default function SiteFooter() {
               <li><Link href="/countries">Play in your country</Link></li>
               <li><Link href="/updates">Updates</Link></li>
               <li><Link href="/support">Support</Link></li>
+              <li><Link href="/privacy">Privacy</Link></li>
             </ul>
           </div>
           <div className="stack-2">
@@ -36,7 +37,7 @@ export default function SiteFooter() {
           </p>
           <p>
             <strong>Your data:</strong> no trackers and no ads. We keep your player profile and points, we never sell or
-            share them, and we&apos;ll delete them if you ask at <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
+            share them, and you can delete them at any time. <Link href="/privacy">How we handle your data</Link>.
           </p>
         </div>
       </div>
