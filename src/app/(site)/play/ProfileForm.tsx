@@ -102,9 +102,11 @@ export default function ProfileForm({
       {joining ? (
         <label className="check">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-          I understand Truth First is an imaginary party and a game. It doesn&apos;t take money or endorse candidates. I
-          agree that it stores my profile, including my party, as set out in the{' '}
-          <Link href="/privacy" target="_blank">privacy page</Link>.
+          <span>
+            I understand Truth First is an imaginary party and a game. It doesn&apos;t take money or endorse candidates. I
+            agree that it stores my profile, including my party, as set out in the{' '}
+            <Link href="/privacy" target="_blank">privacy page</Link>.
+          </span>
         </label>
       ) : null}
       {error ? <p className="notice notice--error small" role="alert">{error}</p> : null}
