@@ -55,7 +55,7 @@ export default function HomePage() {
             {[
               ['Keep your party', 'Stay registered where you are. Truth First is an overlay, not a defection.'],
               ['Declare it', "Say publicly that you're Truth First as well. Every declaration makes it easier for the next person."],
-              ['Swing both ways', 'Truth First voters in both parties publish the same terms and back whoever meets them, in primaries and in general elections.'],
+              ['Be the swing vote', 'Truth First players in both parties agree on the same tests of truthfulness and hold every candidate to them. You decide your own vote; Truth First never endorses anyone.'],
             ].map(([h, p], i) => (
               <div key={h} className="card stack-2">
                 <span className="step-n">{i + 1}</span>
