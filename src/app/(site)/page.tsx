@@ -18,6 +18,7 @@ export default function HomePage() {
           </p>
           <div className="row">
             <PlayButton label="Sign in to play" />
+            <Link href="/story" className="cs-btn cs-btn--secondary">Read the story</Link>
             <Link href="/countries" className="cs-btn cs-btn--secondary">Play in your country</Link>
           </div>
           <FounderCounter />

@@ -240,3 +240,26 @@ img { max-width: 100%; }
 .copy-box { background: var(--surface-sunk); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; font-style: italic; word-break: break-word; }
 @media (max-width: 520px) { .country-row { grid-template-columns: 110px 1fr 36px; } }
 .stack-10 > * + * { margin-top: var(--space-10); }
+
+/* The story: one chapter per screen, verse-like lines. */
+html:has(.story) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html:has(.story) { scroll-behavior: auto; } }
+.story-page { min-height: 100svh; display: flex; align-items: center; padding: var(--space-16) 0; border-top: 1px solid var(--line); scroll-margin-top: 0; }
+.story-page:nth-of-type(even) { background: var(--surface-sunk); }
+.story-open { min-height: calc(100svh - 64px); border-top: 0; }
+.story-inner { max-width: 760px; display: flex; flex-direction: column; gap: var(--space-6); align-items: flex-start; }
+.story-count { color: var(--focus); }
+.story-anchor { color: inherit; text-decoration: none; }
+.story-anchor:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.story-verse { font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 26px); line-height: 1.5; }
+.story-verse p { margin: 0 0 1.1em; }
+.story-verse p:last-child { margin-bottom: 0; }
+.story-line { display: block; padding-left: 1em; text-indent: -1em; }
+.story-key { color: var(--focus); font-weight: 700; }
+.story-next { font-family: var(--font-mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--signal); padding-bottom: 2px; }
+.story-next:hover { color: var(--focus); }
+.story-last { background: #14213d !important; color: #f7f4ec; border-top-color: #14213d; }
+.story-last .story-count, .story-last .story-key { color: #e9b44c; }
+.story-last .story-next { color: #f7f4ec; }
+.story-last .cs-btn:not(.cs-btn--secondary) { background: #e9b44c; color: #14213d; }
+.story-last .cs-btn--secondary { color: #f7f4ec; border-color: #f7f4ec; background: transparent; }
