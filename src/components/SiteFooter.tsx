@@ -13,6 +13,7 @@ export default function SiteFooter() {
           <div className="stack-2">
             <p className="meta muted">The game</p>
             <ul>
+              <li><Link href="/story">The story</Link></li>
               <li><Link href="/play">Play</Link></li>
               <li><Link href="/countries">Play in your country</Link></li>
               <li><Link href="/updates">Updates</Link></li>

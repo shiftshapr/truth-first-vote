@@ -26,6 +26,7 @@ export default function SiteHeader() {
           {SITE.short}
         </Link>
         <nav className="nav" aria-label="Main">
+          <Link href="/story" className="hide-sm">Story</Link>
           <Link href="/countries" className="hide-sm">Countries</Link>
           <Link href="/updates" className="hide-sm">Updates</Link>
           <Link href="/support" className="hide-sm">Support</Link>
